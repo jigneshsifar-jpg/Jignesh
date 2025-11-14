@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jignesh Sifar — Personal Dashboard</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#8ab4ff;
+    --muted:#9aa7bf;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    color:#dbe7ff;
+    background:linear-gradient(180deg,var(--bg), #071026 80%);
+    overflow:hidden;
+    cursor:none; /* hide default cursor */
+  }
+
+  /* Click-to-enter overlay */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 9999;
+    color: #fff;
+    font-size: 32px;
+    font-weight: 600;
+    user-select: none;
+    overflow: hidden;
+    opacity:1;
+    transition: opacity 0.8s ease;
+  }
+  #overlay.fade-out{
+    opacity:0;
+    pointer-events:none;
+  }
+  #overlay canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .stage{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective:1000px;
+    position:relative;
+  }
+
+  /* Background layers */
+  .layer{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    transform-style:preserve-3d;
+  }
+  .layer .shape{
+    position:absolute;
+    will-change:transform,opacity;
+    filter:blur(30px) contrast(1.1);
+    opacity:0.55;
+    mix-blend-mode:screen;
+  }
+  .shape.s1{ width:420px;height:420px;border-radius:50%; background:linear-gradient(135deg,#7dd3fc,#60a5fa); left:10%; top:10%; }
+  .shape.s2{ width:600px;height:260px;border-radius:40px; background:linear-gradient(135deg,#a78bfa,#60a5fa); right:5%; top:5%; transform-origin:center; }
+  .shape.s3{ width:360px;height:360px;border-radius:26px; background:linear-gradient(135deg,#34d399,#60a5fa); left:30%; bottom:15%; }
+
+  /* Card */
+  .card{
+    position:relative;
+    width:920px;
+    max-width:94%;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:16px;
+    padding:32px;
+    box-shadow: 0 10px 50px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    display:flex;
+    gap:24px;
+    align-items:center;
+    transform-style:preserve-3d;
+    will-change:transform,clip-path;
+    border: 1px solid rgba(255,255,255,0.03);
+    backdrop-filter: blur(6px) saturate(120%);
+  }
+
+  .avatar{
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    flex:0 0 180px;
+    overflow:hidden;
+    background:linear-gradient(135deg,#1e293b,#0b1220);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 6px 30px rgba(2,6,23,0.6);
+    transform-style:preserve-3d;
+    position:relative;
+}
+.avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+    border-radius:50%;
+}
+.particles-canvas {
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    pointer-events:none;
+}
+
+  .meta{flex:1; min-width:0}
+  .meta h1{margin:0;font-size:28px;letter-spacing:0.4px;color:#e6f0ff}
+  .meta p{margin:8px 0 16px;color:var(--muted)}
+  .links{display:flex;gap:10px;flex-wrap:wrap}
+  .links a{display:inline-block;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.03);color:#d4e7ff;text-decoration:none;border:1px solid rgba(255,255,255,0.02);font-weight:600}
+  .links a:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(12,18,30,0.45)}
+
+  /* cursor follower */
+  .cursor-follower{
+    position:fixed;
+    left:0;top:0;
+    width:22px;height:22px;border-radius:50%;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.6) 10%, rgba(138,180,255,0.15) 30%);
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 0 15px rgba(138,180,255,0.6),0 6px 20px rgba(37,99,235,0.12);
+    will-change:transform,opacity;
+    mix-blend-mode:screen;
+    z-index:9999;
+  }
+
+  footer{position:fixed;left:16px;bottom:12px;color:rgba(255,255,255,0.35);font-size:13px}
+
+  @media (max-width:700px){
+    .card{flex-direction:column;gap:18px;padding:20px}
+    .avatar{width:140px;height:140px}
+    .cursor-follower{display:none}
+  }
+
+  /* music card */
+  .music-card{
+    margin-top:20px;
+    flex-direction:column;
+    gap:8px;
+    padding:16px 20px;
+    width:880px;
+    max-width:90%;
+    display:flex;
+    border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.04);
+    backdrop-filter:blur(6px);
+    box-shadow:0 6px 20px rgba(2,6,23,0.6);
+    z-index:3;
+    cursor:pointer;
+    transform-style:preserve-3d;
+    transition: transform 0.2s ease;
+  }
+  .music-controls{display:flex;align-items:center;justify-content:space-between}
+  .music-controls button{
+    background:none;
+    border:none;
+    font-size:28px;
+    cursor:pointer;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .music-controls button.playing{
+    transform: scale(1.25) rotate(15deg);
+    color:var(--accent);
+  }
+  .song-title{font-size:16px;font-weight:600;color:#dbe7ff}
+  .progress{width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;margin-top:4px;position:relative}
+  .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#a78bfa);transition:width 0.05s linear;position:relative}
+  .progress-dot{position:absolute;top:50%;left:0%;width:10px;height:10px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+  .volume-control {
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .volume-control input[type=range] {
+    width:120px;
+    height:4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- Click-to-enter overlay -->
+<div id="overlay">
+  <div>Click to Enter</div>
+  <canvas id="snowCanvas"></canvas>
+</div>
+
+<div class="stage" id="stage">
+
+  <div class="layer" id="bg">
+    <div class="shape s1" data-speed="0.06"></div>
+    <div class="shape s2" data-speed="0.03"></div>
+    <div class="shape s3" data-speed="0.08"></div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;z-index:3;">
+    <div class="card" id="card">
+      <div class="avatar" id="avatar">
+        <img src="assets/1455a2db5ce5039fe76e8f0ac7e2de48.gif" alt="Profile">
+        <canvas class="particles-canvas" id="particleCanvas"></canvas>
+      </div>
+      <div class="meta">
+        <h1>Jignesh Sifar</h1>
+        <p>Programmer / Editor — turning ideas into code & visuals.</p>
+        <div class="links">
+          <a href="https://www.facebook.com/jignesh.maharjan.9" target="_blank">Facebook</a>
+          <a href="https://www.instagram.com/j1gnesh_m/" target="_blank">Instagram</a>
+          <a href="" target="_blank">Twitter</a>
+          <a href="" target="_blank">GitHub</a>
+          <a href="" target="_blank">Discord</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="music-card" id="musicCard">
+      <div class="music-controls">
+        <div class="song-title">🎵 Victory Anthem 🏆</div>
+        <button id="toggleBtn">▶️</button>
+      </div>
+      <div class="progress">
+        <div class="progress-fill" id="musicProgress"></div>
+        <div class="progress-dot" id="progressDot"></div>
+      </div>
+      <div class="volume-control">
+        🔊 <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.45">
+      </div>
+      <audio id="audioPlayer" src="assets/Khushi - Victory Anthem (Lyrics) ft. Lashcurry _ Audiocrackerr.mp3" loop></audio>
+    </div>
+  </div>
+
+  <div class="cursor-follower" id="follower"></div>
+</div>
+
+<footer>Move your mouse — polygon/magnet effect active.</footer>
+
+<script>
+(() => {
+
+  /*================ Overlay Snow =================*/
+  const overlay = document.getElementById('overlay');
+  const snowCanvas = document.getElementById('snowCanvas');
+  const snowCtx = snowCanvas.getContext('2d');
+  let sw = snowCanvas.width = overlay.offsetWidth;
+  let sh = snowCanvas.height = overlay.offsetHeight;
+
+  const flakes = [];
+  const flakeCount = 150;
+  for(let i=0;i<flakeCount;i++){
+    flakes.push({
+      x: Math.random()*sw,
+      y: Math.random()*sh,
+      r: Math.random()*3+1,
+      dy: Math.random()*1+0.3
+    });
+  }
+
+  function animateSnow(){
+    snowCtx.clearRect(0,0,sw,sh);
+    flakes.forEach(f=>{
+      f.y += f.dy;
+      if(f.y > sh) f.y = -f.r;
+      snowCtx.beginPath();
+      snowCtx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      snowCtx.fillStyle='white';
+      snowCtx.fill();
+    });
+    requestAnimationFrame(animateSnow);
+  }
+  animateSnow();
+
+  window.addEventListener('resize', ()=>{
+    sw = snowCanvas.width = overlay.offsetWidth;
+    sh = snowCanvas.height = overlay.offsetHeight;
+  });
+
+  overlay.addEventListener('click', ()=>{
+    overlay.classList.add('fade-out');
+    setTimeout(()=>overlay.style.display='none',800);
+    const audio = document.getElementById('audioPlayer');
+    if(audio) audio.play();
+  });
+
+  /*================ Main Dashboard =================*/
+  const stage = document.getElementById('stage');
+  const follower = document.getElementById('follower');
+  const bg = document.getElementById('bg');
+  const card = document.getElementById('card');
+  const avatar = document.getElementById('avatar');
+  const musicCard = document.getElementById('musicCard');
+  const shapes = Array.from(bg.querySelectorAll('.shape'));
+  const canvas = document.getElementById('particleCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let width = canvas.width = canvas.offsetWidth;
+  let height = canvas.height = canvas.offsetHeight;
+
+  const particles = [];
+  const particleCount = 60;
+  for(let i=0;i<particleCount;i++){
+    particles.push({
+      x: Math.random()*width,
+      y: Math.random()*height,
+      r: Math.random()*2+1,
+      dx:(Math.random()-0.5)*0.5,
+      dy:(Math.random()-0.5)*0.5,
+      alpha: Math.random()*0.5+0.3
+    });
+  }
+
+  function animateParticles(){
+    ctx.clearRect(0,0,width,height);
+    const cx = width/2, cy = height/2;
+    const radius = width/2;
+    particles.forEach(p=>{
+      p.x+=p.dx; p.y+=p.dy;
+      const dist = Math.sqrt((p.x-cx)**2+(p.y-cy)**2);
+      if(dist>radius){
+        const angle = Math.random()*Math.PI*2;
+        p.x = cx+Math.cos(angle)*radius;
+        p.y = cy+Math.sin(angle)*radius;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(0,255,128,${p.alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(animateParticles);
+  }
+  animateParticles();
+
+  window.addEventListener('resize', ()=>{
+    width = canvas.width = canvas.offsetWidth;
+    height = canvas.height = canvas.offsetHeight;
+  });
+
+  let pointer = { x: window.innerWidth/2, y: window.innerHeight/2 };
+  let target = { x: pointer.x, y: pointer.y };
+  let followerPos = { x: pointer.x, y: pointer.y };
+  const lerp = (a,b,t) => a+(b-a)*t;
+
+  function normalizedPointer(px,py){
+    const cx = window.innerWidth/2, cy = window.innerHeight/2;
+    return {x:(px-cx)/cx, y:(py-cy)/cy};
+  }
+
+  function handleMove(px,py){ target.x=px; target.y=py; }
+  window.addEventListener('mousemove', e => handleMove(e.clientX,e.clientY), {passive:true});
+  window.addEventListener('touchstart', ev => { if(ev.touches[0]) handleMove(ev.touches[0].clientX, ev.touches[0].clientY); }, {passive:true});
+  window.addEventListener('touchmove', ev => { if(ev.touches[0]) handleMove(ev.touches[0].clientX, ev.touches[0].clientY); }, {passive:true});
+
+  function update(){
+    pointer.x = lerp(pointer.x,target.x,0.18);
+    pointer.y = lerp(pointer.y,target.y,0.18);
+    followerPos.x = lerp(followerPos.x,target.x,0.28);
+    followerPos.y = lerp(followerPos.y,target.y,0.28);
+    follower.style.transform = `translate3d(${followerPos.x}px, ${followerPos.y}px, 0)`;
+
+    const n = normalizedPointer(pointer.x,pointer.y);
+    shapes.forEach(s=>{
+      const speed = parseFloat(s.dataset.speed||0.04);
+      const tx = n.x*(speed*window.innerWidth*0.12);
+      const ty = n.y*(speed*window.innerHeight*0.12);
+      const rot = n.x*speed*12;
+      s.style.transform = `translate3d(${tx}px, ${ty}px, 0) rotate(${rot}deg)`;
+    });
+
+    card.style.transform = `translate3d(${n.x*20}px,${n.y*12}px,0) rotateX(${-n.y*6}deg) rotateY(${n.x*6}deg)`;
+    avatar.style.transform = `translate3d(${n.x*28}px,${n.y*18}px,40px) rotate(${n.x*10}deg)`;
+    musicCard.style.transform = `translate3d(${n.x*22}px,${n.y*16}px,30px) rotateX(${-n.y*5}deg) rotateY(${n.x*5}deg)`;
+
+    requestAnimationFrame(update);
+  }
+  update();
+
+  // Music logic
+  const audio = document.getElementById('audioPlayer');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const progress = document.getElementById('musicProgress');
+  const progressDot = document.getElementById('progressDot');
+  const volumeSlider = document.getElementById('volumeSlider');
+
+  toggleBtn.onclick = ()=>{
+    if(audio.paused){
+      audio.play();
+      toggleBtn.textContent="⏸️";
+      toggleBtn.classList.add("playing");
+      setTimeout(()=>toggleBtn.classList.remove("playing"),200);
+    } else {
+      audio.pause();
+      toggleBtn.textContent="▶️";
+      toggleBtn.classList.add("playing");
+      setTimeout(()=>toggleBtn.classList.remove("playing"),200);
+    }
+  }
+
+  function updateProgress(){
+    if(audio.duration){
+      const percent = (audio.currentTime/audio.duration)*100;
+      progress.style.width = percent+"%";
+      progressDot.style.left = percent+"%";
+    }
+    requestAnimationFrame(updateProgress);
+  }
+  updateProgress();
+
+  volumeSlider.addEventListener('input', e => { audio.volume = e.target.value; });
+
+})();
+</script>
+</body>
+</html>
